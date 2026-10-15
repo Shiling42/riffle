@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('native', {
   requestOpen: () => ipcRenderer.send('pdf:request-open'),
   openExternal: (url) => ipcRenderer.send('open-external', url),
   openPath: (p) => ipcRenderer.send('open-path', p),
+  readPdf: (p) => ipcRenderer.invoke('pdf:read', p),
+  newWindow: (p) => ipcRenderer.send('win:new-with', p || null),
   docLoaded: () => ipcRenderer.send('doc:loaded'),
   pathForFile: (file) => {
     try { return webUtils.getPathForFile(file); } catch { return null; }

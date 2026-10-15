@@ -67,8 +67,16 @@ with no chrome; auto-trim shaves the white margins so content gets every pixel.
   sharpen only when the gesture rests. Fit-width / fit-height one-taps.
 - **Table of contents** — slides in from the left edge on approach; the
   current chapter is marked as you read.
-- **Multi-window** — every document gets its own window (⌘O multi-select,
-  Finder, drag & drop).
+- **Document desk** — slides in from the right edge (or press `D`); every
+  PDF that enters the window becomes a card you can arrange freely, like
+  paper on a desk. Click a card to switch documents, `⌃Tab` flips between
+  the last two. Hover a card to pick its cover page, pin 📌 it, or open it
+  in a new window; a hairline shows reading progress. Cards untouched for
+  three days fade to grey; unpinned ones leave the desk after seven
+  (only the shelf entry — files on disk are never touched).
+- **Multi-window** — ⌘N or right-click the Dock icon for a fresh workspace;
+  every window keeps its own desk, and one window holds many documents
+  (⌘O multi-select, Finder, drag & drop).
 - **Per-document memory** — view mode, zoom, trim, reading position, and
   annotations are all remembered per file.
 - **Bilingual** — the UI follows your system language (English / 中文).

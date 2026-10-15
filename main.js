@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
 const path = require('path');
 const fs = require('fs/promises');
 const fss = require('fs');
+const { execFile } = require('child_process');
 
 // one-time migration: annotations/prefs from the old app name (轻阅) to Riffle
 try {
@@ -32,16 +33,35 @@ const ZH = {
 };
 let L = EN;
 
+/* the user chose to open this file — clear the quarantine flag so Finder's
+   "could not verify … is free of malware" prompt (shown for downloaded files
+   handled by a non-notarized app) doesn't come back on the next double-click */
+function dequarantine(p) {
+  if (process.platform === 'darwin') {
+    execFile('xattr', ['-d', 'com.apple.quarantine', p], () => {});
+  }
+}
+
 async function sendPdf(win, filePath) {
   if (!win || win.isDestroyed()) return;
   try {
     win.webContents.send('pdf:incoming'); // suppress the empty state right away
     const data = await fs.readFile(filePath);
-    win.webContents.send('pdf:open', { name: path.basename(filePath), data });
+    win.webContents.send('pdf:open', { name: path.basename(filePath), data, path: filePath });
     win.docLoaded = true;
+    dequarantine(filePath);
   } catch (err) {
     dialog.showErrorBox(L.openFail, String(err && err.message || err));
   }
+}
+
+/* each window is its own workspace: lowest free number, so the first window
+   after a relaunch is workspace 1 again and finds its own desk */
+function nextWorkspace() {
+  const used = new Set([...wins].filter((w) => !w.isDestroyed()).map((w) => w.wsid));
+  let i = 1;
+  while (used.has(i)) i++;
+  return i;
 }
 
 function createWindow(filePath) {
@@ -50,7 +70,7 @@ function createWindow(filePath) {
     height: 840,
     minWidth: 460,
     minHeight: 380,
-    frame: false,
+    titleBarStyle: 'hidden', // native traffic lights exist for fullscreen…
     backgroundColor: '#f7f6f3',
     title: 'Riffle',
     webPreferences: {
@@ -58,23 +78,36 @@ function createWindow(filePath) {
       contextIsolation: true,
     },
   });
+  win.wsid = nextWorkspace();
   wins.add(win);
   win.docLoaded = false;
 
-  win.loadFile(path.join(__dirname, 'renderer', 'index.html'), filePath ? { query: { incoming: '1' } } : undefined);
+  const query = { ws: String(win.wsid) };
+  if (filePath) query.incoming = '1';
+  win.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query });
 
   win.webContents.on('did-finish-load', () => {
     if (filePath) sendPdf(win, filePath);
     win.docLoaded = !!filePath;
   });
 
-  win.on('enter-full-screen', () => win.webContents.send('win:fullscreen', true));
-  win.on('leave-full-screen', () => win.webContents.send('win:fullscreen', false));
+  // …but stay hidden while windowed, where the hover-revealed HTML ones live.
+  // In fullscreen the native ones take over and ride the sliding menu bar.
+  if (win.setWindowButtonVisibility) win.setWindowButtonVisibility(false);
+  win.on('enter-full-screen', () => {
+    if (win.setWindowButtonVisibility) win.setWindowButtonVisibility(true);
+    win.webContents.send('win:fullscreen', true);
+  });
+  win.on('leave-full-screen', () => {
+    if (win.setWindowButtonVisibility) win.setWindowButtonVisibility(false);
+    win.webContents.send('win:fullscreen', false);
+  });
   win.on('closed', () => wins.delete(win));
   return win;
 }
 
-/* route a file: reuse an empty window if one exists, else open a new one */
+/* route a file: reuse an empty window, else join the focused window's shelf,
+   else open a new window */
 function openPath(filePath) {
   const p = path.resolve(filePath);
   const empty = [...wins].find((w) => !w.isDestroyed() && !w.docLoaded);
@@ -86,6 +119,13 @@ function openPath(filePath) {
       sendPdf(empty, p);
     }
     empty.focus();
+    return;
+  }
+  const target = BrowserWindow.getFocusedWindow() ||
+    [...wins].find((w) => !w.isDestroyed());
+  if (target) {
+    sendPdf(target, p);
+    target.focus();
   } else {
     createWindow(p);
   }
@@ -117,6 +157,18 @@ ipcMain.on('win:fullscreen', (e) => {
   if (w) w.setFullScreen(!w.isFullScreen());
 });
 ipcMain.on('pdf:request-open', () => openDialog());
+
+// the renderer's document shelf reopens files on its own
+ipcMain.handle('pdf:read', async (_e, p) => {
+  if (typeof p !== 'string' || !p.toLowerCase().endsWith('.pdf')) throw new Error('bad path');
+  const data = await fs.readFile(p);
+  dequarantine(p);
+  return data;
+});
+ipcMain.on('win:new-with', (_e, p) => {
+  if (typeof p === 'string' && p.toLowerCase().endsWith('.pdf')) createWindow(path.resolve(p));
+  else createWindow();
+});
 
 // macOS: file double-clicked in Finder / dragged onto the Dock icon
 app.on('open-file', (event, filePath) => {
@@ -174,6 +226,14 @@ app.whenReady().then(() => {
     },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+
+  // macOS: right-clicking the Dock icon offers a fresh workspace
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setMenu(Menu.buildFromTemplate([
+      { label: L.newWin, click: () => createWindow() },
+      { label: L.open, click: () => openDialog() },
+    ]));
+  }
 
   const cliPdf = process.argv
     .slice(app.isPackaged ? 1 : 2)
