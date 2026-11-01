@@ -67,8 +67,19 @@ with no chrome; auto-trim shaves the white margins so content gets every pixel.
   sharpen only when the gesture rests. Fit-width / fit-height one-taps.
 - **Table of contents** — slides in from the left edge on approach; the
   current chapter is marked as you read.
-- **Multi-window** — every document gets its own window (⌘O multi-select,
-  Finder, drag & drop).
+- **Tabs** — every PDF you open lands as a tab in the current window. The strip
+  stays out of sight while you read and slides in only when your cursor nears
+  it; hover a tab for a peek at the page you left off on. ⌘1–9, ⌃Tab, ⌘W,
+  ⇧⌘T. Drag a tab sideways to reorder, pull it out to give it a window of its
+  own — and carry a window by its tab onto another window's strip to merge it
+  back in as a tab.
+- **Print** — ⌘P opens a small sheet with a live preview you can riffle: all,
+  current, or a page range; your highlights and notes printed in (with a
+  numbered notes appendix); optional margin trim for larger text. Then the
+  system dialog takes over — printer, duplex, Save as PDF.
+- **Chinese & CJK papers** — non-embedded CJK fonts render correctly (pdf.js
+  character maps), garbled GBK bookmarks are repaired, and search reads
+  through line breaks between Chinese characters.
 - **Per-document memory** — view mode, zoom, trim, reading position, and
   annotations are all remembered per file.
 - **Bilingual** — the UI follows your system language (English / 中文).

@@ -32,6 +32,21 @@
   <!-- current file name, only shown while the menu is open -->
   <div id="fileLabel"></div>
 
+  <!-- tabs: every open document, top centre — slides in only when the cursor comes near -->
+  <div id="tabStrip">
+    <div id="tabList" role="tablist"></div>
+    <button id="tabNew" tabindex="-1" title="在新标签页中打开 (⌘T)">
+      <svg viewBox="0 0 20 20"><path d="M10 5.5v9M5.5 10h9"/></svg>
+    </button>
+  </div>
+
+  <!-- tab hover card: the full name, and a peek at where you left off -->
+  <div id="tabCard">
+    <b id="tcName"></b>
+    <div id="tcMeta"><span id="tcPage"></span><span class="tc-bar"><i></i></span></div>
+    <div class="tc-paper"><canvas></canvas></div>
+  </div>
+
   <!-- find in document (⌘F) -->
   <div id="findWrap">
     <div id="findBar">
@@ -59,6 +74,9 @@
   <div id="menuPanel">
     <button class="menu-row" id="menuOpen">
       <span>打开 PDF…</span><kbd>⌘O</kbd>
+    </button>
+    <button class="menu-row" id="menuPrint">
+      <span>打印…</span><kbd>⌘P</kbd>
     </button>
     <div class="menu-sep"></div>
     <div class="menu-label">浏览模式</div>
@@ -189,6 +207,42 @@
       </button>
     </footer>
   </div>
+
+  <!-- print: a small sheet with a live preview, then the system print dialog -->
+  <div id="printVeil"></div>
+  <div id="printSheet" role="dialog">
+    <div class="ps-preview">
+      <div class="ps-paper"><canvas></canvas></div>
+      <em id="psBadge"></em>
+    </div>
+    <div class="ps-body">
+      <header><b id="psTitle">打印</b><span id="psDoc"></span></header>
+      <div class="ps-row">
+        <span id="psPagesLabel">页面</span>
+        <div class="segmented ps-seg" id="psRange">
+          <button data-range="all" class="on">全部</button>
+          <button data-range="current">当前页</button>
+          <button data-range="custom">范围</button>
+        </div>
+      </div>
+      <input id="psCustom" type="text" spellcheck="false" autocomplete="off" />
+      <button class="ps-row ps-toggle" id="psAnnots">
+        <span>高亮与批注</span><span class="switch"><i></i></span>
+      </button>
+      <button class="ps-row ps-toggle" id="psTrim">
+        <span>裁剪白边<small>放大正文</small></span><span class="switch"><i></i></span>
+      </button>
+      <footer>
+        <span id="psSummary"></span>
+        <button class="ps-btn" id="psCancel">取消</button>
+        <button class="ps-btn primary" id="psGo">打印…</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- pages rendered for the printer — invisible on screen -->
+  <div id="printRoot"></div>
+  <style id="printPageStyle"></style>
 
   <script src="../node_modules/pdfjs-dist/build/pdf.min.js"></script>
   <script src="app.js"></script>

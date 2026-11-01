@@ -10,6 +10,7 @@
   --panel-shadow: 0 10px 40px rgba(30, 25, 15, 0.14), 0 2px 8px rgba(30, 25, 15, 0.07);
   --page-shadow: 0 1px 2px rgba(35, 30, 20, 0.08), 0 10px 28px rgba(35, 30, 20, 0.09);
   --hover: rgba(0, 0, 0, 0.055);
+  --chip: #fff;                /* raised chip on a glass panel (the active tab) */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,6 +24,7 @@
     --panel-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
     --page-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.45);
     --hover: rgba(255, 255, 255, 0.07);
+    --chip: rgba(255, 255, 255, 0.16);
   }
 }
 
@@ -94,7 +96,7 @@ body.loading #empty { display: none !important; }
   pointer-events: none;
   transition: opacity 0.25s ease 0.3s; /* fast loads never flash it */
 }
-body.loading #loadingHint { opacity: 0.8; }
+body.loading.no-doc #loadingHint { opacity: 0.8; }  /* with a page on screen the hairline is enough */
 
 /* traffic lights — appear only when the cursor visits the top-left corner */
 #winControls {
@@ -163,6 +165,192 @@ body.no-doc #toolbar, body.no-doc #pageIndicator, body.no-doc #fileLabel { opaci
   pointer-events: none;
 }
 body.menu-open #fileLabel, #fileLabel.show { opacity: 1; }
+body.has-tabs.tabs-show #fileLabel:not(.show),
+body.has-tabs.tabs-flash #fileLabel:not(.show) { opacity: 0 !important; }  /* the tabs already say it */
+
+/* ---------- tabs ---------- */
+
+/* a floating strip of open documents, top centre. It appears only once there is
+   more than one tab (a single document reads exactly as before), and only when
+   the cursor comes near it — or for a moment after a switch from the keyboard */
+#tabStrip {
+  position: fixed; top: 8px; left: 50%;
+  max-width: calc(100vw - 232px);   /* clear of the window controls and the menu */
+  display: flex; align-items: center; gap: 2px;
+  padding: 4px;
+  border-radius: 13px;
+  background: var(--panel);
+  backdrop-filter: blur(22px) saturate(1.5);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  z-index: 57;
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
+  pointer-events: none;
+  transition: opacity 0.26s ease, transform 0.26s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+body.has-tabs.tabs-show #tabStrip,
+body.has-tabs.tabs-flash #tabStrip {
+  opacity: 1;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+/* a tab on its way between windows: the strip it may land in shows (holding a
+   slot open), and so does the strip of a new window being carried by its tab */
+body.tab-landing #tabStrip,
+body.has-tabs.tab-held #tabStrip {
+  opacity: 1;
+  transform: translateX(-50%);
+}
+/* while hidden the strip must not punch holes in the window's drag strip */
+#tabStrip button { -webkit-app-region: initial; }
+body.has-tabs.tabs-show #tabStrip :is(.tab, button),
+body.has-tabs.tabs-flash #tabStrip :is(.tab, button) { -webkit-app-region: no-drag; }
+
+#tabList {
+  position: relative;               /* offsets for drag-to-reorder */
+  display: flex; gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* the scroll box clips: room all round, so a tab in hand keeps its whole shadow */
+  padding: 6px 10px 10px;
+  margin: -6px -10px -10px;
+}
+#tabList::-webkit-scrollbar { display: none; }
+
+.tab {
+  position: relative;
+  display: flex; align-items: center;
+  width: 188px;                    /* definite, so a long title never widens the strip */
+  flex: 0 1 auto;
+  min-width: 64px;
+  height: 28px;
+  padding: 0 5px 0 12px;
+  border-radius: 9px;
+  color: var(--ink-2);
+  cursor: default;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease,
+              transform 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.tab:hover { background: var(--hover); color: var(--ink); }
+.tab.on {
+  background: var(--chip);
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(30, 25, 15, 0.12);
+}
+.tab.dragging {
+  transition: none;
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(30, 25, 15, 0.2);   /* stays inside #tabList's padding */
+}
+/* the slot a carried tab rides in, and the tab a new window is carried by: in hand */
+.tab.landing,
+body.tab-held .tab {
+  background: var(--chip);
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(30, 25, 15, 0.2);
+}
+.tab.landing { transition: none; z-index: 1; }
+body.tab-landing .tab.on { background: none; box-shadow: none; color: var(--ink-2); } /* the newcomer takes the front */
+.tab-title {
+  flex: 1; min-width: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+/* a document still opening: dimmed name, a slow vermilion pulse */
+.tab.loading .tab-title { opacity: 0.55; }
+.tab.loading::before {
+  content: '';
+  flex: none;
+  width: 5px; height: 5px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: tab-pulse 0.9s ease-in-out infinite alternate;
+}
+@keyframes tab-pulse { from { opacity: 0.2; } to { opacity: 1; } }
+
+.tab-x {
+  flex: none;
+  width: 18px; height: 18px;
+  margin-left: 3px;
+  border-radius: 5px;
+  display: grid; place-items: center;
+  color: var(--ink-2);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.tab:hover .tab-x { opacity: 1; }
+.tab-x:hover { background: var(--hover); color: var(--ink); }
+.tab-x svg { width: 11px; height: 11px; stroke-width: 1.6; }
+
+#tabNew {
+  flex: none;
+  width: 28px; height: 28px;
+  border-radius: 9px;
+  display: grid; place-items: center;
+  color: var(--ink-2);
+}
+#tabNew:hover { background: var(--hover); color: var(--ink); }
+#tabNew svg { width: 15px; height: 15px; }
+body.dragging #tabNew { color: var(--accent); }
+
+/* hover card: the whole name, how far in you are, and the page you left off on */
+#tabCard {
+  position: fixed;
+  width: 248px;
+  padding: 11px 12px 12px;
+  border-radius: 14px;
+  background: var(--panel);
+  backdrop-filter: blur(24px) saturate(1.5);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  z-index: 58;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+#tabCard.open { opacity: 1; transform: none; }
+#tcName {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink);
+}
+#tcMeta {
+  display: flex; align-items: center; gap: 9px;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tc-bar { flex: 1; height: 2px; border-radius: 2px; background: var(--hover); overflow: hidden; }
+.tc-bar i { display: block; height: 100%; width: var(--p, 0%); background: var(--accent); border-radius: 2px; }
+.tc-paper {
+  display: none;
+  margin: 10px auto 0;
+  background: #fff;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(25, 18, 8, 0.16), 0 1px 4px rgba(25, 18, 8, 0.1);
+}
+#tabCard.has-page .tc-paper { display: block; }
+.tc-paper canvas {
+  display: block;
+  width: 100%; height: 100%;
+  opacity: 0;
+  transition: opacity 0.13s linear;   /* clean paper first, then the page dissolves in */
+}
+.tc-paper.ready canvas { opacity: 1; }
 
 /* ---------- find in document ---------- */
 
@@ -681,6 +869,8 @@ body.no-doc #toolbar {
   pointer-events: none !important;
 }
 body.tool-active #fileLabel { opacity: 0 !important; }
+/* with tabs the strip owns the top edge — the toolbar sits just below it */
+body.has-tabs #toolbar { top: 54px; }
 .tool {
   width: 34px; height: 34px;
   border-radius: 50%;
@@ -1021,3 +1211,181 @@ body.no-doc #pageIndicator { opacity: 0 !important; pointer-events: none !import
   border-top: 1px solid var(--panel-border);
 }
 .popover.note footer span { font-size: 10.5px; color: var(--ink-2); letter-spacing: 0.03em; }
+
+/* ---------- print ---------- */
+
+#printVeil {
+  position: fixed; inset: 0;
+  background: rgba(30, 24, 16, 0.16);
+  z-index: 80;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+body.print-open #printVeil { opacity: 1; pointer-events: auto; }
+
+/* a sheet that drops in from the top: preview on the left, three choices on the right */
+#printSheet {
+  position: fixed; top: 72px; left: 50%;
+  width: 484px;
+  max-width: calc(100vw - 32px);
+  display: flex; gap: 20px;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--panel);
+  backdrop-filter: blur(28px) saturate(1.5);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  z-index: 81;
+  opacity: 0;
+  transform: translate(-50%, -10px) scale(0.98);
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+body.print-open #printSheet { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+
+/* live preview of the sheet of paper — hover and sweep across it to riffle the selection */
+.ps-preview {
+  flex: none;
+  width: 148px;
+  min-height: 160px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+}
+.ps-paper {
+  position: relative;
+  width: 148px; height: 191px;     /* sized in JS to the paper's aspect */
+  background: #fff;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: 0 8px 26px rgba(25, 18, 8, 0.22), 0 1px 4px rgba(25, 18, 8, 0.12);
+}
+.ps-paper.multi { cursor: ew-resize; }
+.ps-paper canvas { display: block; width: 100%; height: 100%; }
+.ps-paper.empty canvas { opacity: 0; }
+#psBadge {
+  font-style: normal;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+  min-height: 14px;
+}
+
+.ps-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ps-body header { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+#psTitle { font-size: 15px; font-weight: 600; letter-spacing: 0.01em; }
+#psDoc {
+  font-size: 12px;
+  color: var(--ink-2);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.ps-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%;
+  padding: 7px 0;
+  text-align: left;
+}
+.ps-seg { margin: 0; flex: none; }
+.ps-seg button { padding: 4px 10px; font-size: 12px; }
+#psCustom {
+  display: none;
+  width: 100%;
+  margin: 0 0 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--hover);
+  font: inherit;
+  color: var(--ink);
+  outline: none;
+  user-select: text;
+  transition: border-color 0.15s ease;
+}
+#psCustom::placeholder { color: var(--ink-2); opacity: 0.7; }
+#psCustom:focus { border-color: var(--accent); }
+#psCustom.bad { border-color: #e0443a; }
+#printSheet.custom #psCustom { display: block; }
+.ps-toggle small { display: block; margin-top: 1px; font-size: 11px; color: var(--ink-2); }
+#printSheet.no-annots #psAnnots { display: none; }
+
+.ps-body footer {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--panel-border);
+}
+#psSummary {
+  flex: 1; min-width: 0;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.ps-btn {
+  padding: 6px 15px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  transition: background 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.ps-btn:hover { background: var(--hover); }
+.ps-btn.primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(208, 96, 63, 0.35);
+}
+.ps-btn.primary:hover { background: var(--accent); filter: brightness(1.06); }
+.ps-btn.primary:disabled { opacity: 0.4; box-shadow: none; filter: none; cursor: default; }
+body.print-busy #psGo { opacity: 0.55; pointer-events: none; }
+body.print-busy #progress { opacity: 1; transition: transform 0.2s ease; }
+
+/* pages rendered for the printer exist only on paper */
+#printRoot { display: none; }
+
+@media print {
+  html, body {
+    height: 100% !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  body > *:not(#printRoot) { display: none !important; }
+  #printRoot, .print-job { display: block !important; height: 100%; }
+  .print-page {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    break-inside: avoid;
+  }
+  .print-page + .print-page, .print-notes { break-before: page; }
+  .print-page img { display: block; max-width: 100%; max-height: 100%; }
+  .print-page.trimmed { padding: 0.4in; }   /* trimmed content, scaled up — kept off the paper's edge */
+
+  /* notes appendix: the numbered pins on the pages, spelled out */
+  .print-notes {
+    padding: 0.85in 0.9in;
+    color: #1f1d1a;
+    font: 10.5pt/1.6 -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+  }
+  .print-notes h1 { font-size: 15pt; font-weight: 600; letter-spacing: 0.01em; }
+  .print-notes .pn-doc { margin: 2pt 0 16pt; color: #8a8781; font-size: 9.5pt; }
+  .print-notes ol { list-style: none; }
+  .print-notes li {
+    display: flex; gap: 10pt;
+    padding: 8pt 0;
+    border-top: 0.6pt solid #e7e3dc;
+    break-inside: avoid;
+  }
+  .pn-num {
+    flex: none;
+    width: 15pt; height: 15pt;
+    margin-top: 1pt;
+    border-radius: 50%;
+    background: #f7b944;
+    color: #3b2700;
+    font-size: 8pt; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .pn-page { color: #8a8781; font-size: 9pt; }
+  .pn-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+}

@@ -1,7 +1,7 @@
 {
   "name": "riffle",
   "productName": "Riffle",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Riffle — a featherweight PDF reader that lets you riffle through pages",
   "main": "main.js",
   "scripts": {
