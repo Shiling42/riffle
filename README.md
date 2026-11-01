@@ -11,7 +11,11 @@
   The window is the page — every control stays hidden until your cursor comes looking for it.
 </p>
 
-![Reading view](docs/shot-reading.png)
+
+
+https://github.com/user-attachments/assets/bc349cfe-a459-4dd8-b7fb-4b847721e7bf
+
+
 
 ## Why Riffle
 
